@@ -15,7 +15,6 @@ const profileSchema = new Schema(
     },
     avatar: {
       type: String,
-      required: true,
     },
     followers: {
       count: {
@@ -29,7 +28,6 @@ const profileSchema = new Schema(
         },
       ],
     },
-
     following: {
       count: {
         type: Number,
@@ -57,7 +55,16 @@ const profileSchema = new Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 )
+
+profileSchema.virtual('avatar_url').get(function () {
+  if (this.avatar) {
+    return `${process.env.API_URL}/uploads/avatars/${this.avatar}`
+  }
+  return null
+})
 
 export const Profile = model('Profile', profileSchema)

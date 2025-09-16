@@ -14,7 +14,7 @@ export const updatePassword = async (req, res) => {
       .json(serverError({ error: 'Corpo da requisição indisponível!' }))
 
   try {
-    const { id } = req.params
+    const { id } = req.user
     const user = await User.findById(id)
 
     if (!user)
@@ -69,7 +69,7 @@ export const updateUsername = async (req, res) => {
       .json(serverError({ error: 'Corpo da requisição indisponível!' }))
 
   try {
-    const { id } = req.params
+    const { id } = req.user
     const user = await User.findById(id)
 
     if (!user)

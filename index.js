@@ -5,6 +5,7 @@ import connectDB from './database/connect.js'
 import { serverError } from './helpers/auxiliar.js'
 import authRoutes from './routes/authRouter.js'
 import userRoutes from './routes/userRouter.js'
+import profileRoutes from './routes/profileRouter.js'
 
 const main = async () => {
   // DATABASE - SE NÃO HOUVER DATABASE O SERVIDOR ENCERRA
@@ -27,6 +28,7 @@ const main = async () => {
 
   app.use('/auth/', authRoutes)
   app.use('/user/', userRoutes)
+  app.use('/profile/', profileRoutes)
 
   app.listen(port, () => console.log('SERVER RUNNING!'))
 }
