@@ -1,10 +1,32 @@
 import express from 'express'
+import cors from 'cors'
 import 'dotenv/config'
+import connectDB from './database/connect.js'
+import { serverError } from './helpers/auxiliar.js'
+import authRoutes from './routes/authRouter.js'
 
-const app = express()
+const main = async () => {
+  // DATABASE - SE NÃO HOUVER DATABASE O SERVIDOR ENCERRA
+  const dbAccess = process.env.DB_KEY || ''
+  if (dbAccess === '') {
+    serverError('Database accsess undefined')
+  }
+  connectDB(dbAccess)
 
-app.get('/', (req, res) => {
-  res.send({ msg: 'Olá' })
-})
+  // VARIAVEIS E MIDDLEWARES
+  const app = express()
+  const port = process.env.PORT || 8000
+  app.use(express.json())
+  app.use(cors())
 
-app.listen(8000, () => console.log('SERVER RUNNING!'))
+  // ROTAS - ADICIONE NOVAS ROTAS AQUI
+  app.get('/', (req, res) => {
+    res.send({ msg: 'Hello, World' })
+  })
+
+  app.use('/auth/', authRoutes)
+
+  app.listen(port, () => console.log('SERVER RUNNING!'))
+}
+
+main()

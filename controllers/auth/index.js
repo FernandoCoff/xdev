@@ -1,0 +1,124 @@
+import jwt from 'jsonwebtoken'
+import bcrypt from 'bcryptjs'
+import { User } from '../../models/User.js'
+import { Profile } from '../../models/Profile.js'
+import {
+  serverError,
+  created,
+  notFout,
+  success,
+} from '../../helpers/httpRespose.js'
+
+export const register = async (req, res) => {
+  if (!req.body)
+    return res
+      .status(409)
+      .json(serverError({ error: 'Corpo da requisição indisponível!' }))
+
+  const { username, email, password } = req.body
+
+  try {
+    const user = await User.findOne({ $or: [{ email }, { username }] })
+    if (user) {
+      return res
+        .status(409)
+        .json(
+          serverError({ error: 'Email e/ou nome de usuário já cadastrado!' }),
+        )
+    }
+
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(password, salt)
+    const colors = [
+      'E6E6FA',
+      'FFB6C1',
+      'ADD8E6',
+      'F08080',
+      '90EE90',
+      'FFDAB9',
+      'B0E0E6',
+      'FFDEAD',
+      'DDA0DD',
+      '87CEFA',
+    ]
+    const initial = username.split('')[0]
+
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+    })
+
+    const newProfile = new Profile({
+      user: newUser._id,
+      username: newUser.username,
+      avatar: `https://placehold.co/400x400/${colors}/FFFFFF?font=poppins&text=${initial}`,
+    })
+
+    newUser.profile = newProfile._id
+    await Promise.all([newUser.save(), newProfile.save()])
+
+    const payload = {
+      id: newUser.id,
+    }
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    })
+
+    return res
+      .status(201)
+      .json(created({ message: 'Usuário criado com sucesso!', token, id: newUser.id}))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const login = async (req, res) => {
+  if (!req.body)
+    return res
+      .status(409)
+      .json(serverError({ error: 'Corpo da requisição indisponível!' }))
+
+  const { email, password } = req.body
+
+  try {
+    const user = await User.findOne({ email })
+    if (!user) {
+      return res
+        .status(401)
+        .json(notFout({ error: 'Email e/ou Senha Incorretos.' }))
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json(notFout({ error: 'Email e/ou Senha Incorretos.' }))
+    }
+
+    const payload = {
+      id: user.id,
+    }
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    })
+
+    res
+      .status(200)
+      .json(success({ message: 'Usuário autenticado com sucesso!', token, id: user.id }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
