@@ -5,9 +5,15 @@ import { Profile } from '../../models/Profile.js'
 import {
   serverError,
   created,
-  notFout,
+  notFound,
   success,
 } from '../../helpers/httpRespose.js'
+import { getRandomInt } from '../../helpers/auxiliar.js'
+import {
+  passwordValidation,
+  emailValidation,
+  usernameValidation,
+} from '../../helpers/validation.js'
 
 export const register = async (req, res) => {
   if (!req.body)
@@ -15,18 +21,37 @@ export const register = async (req, res) => {
       .status(409)
       .json(serverError({ error: 'Corpo da requisição indisponível!' }))
 
-  const { username, email, password } = req.body
-
   try {
+    const {
+      username: rawUsername,
+      email: rawEmail,
+      password: rawPassword,
+    } = req.body
+    const username = rawUsername ? rawUsername.trim() : ''
+    const email = rawEmail ? rawEmail.trim() : ''
+    const password = rawPassword ? rawPassword.trim() : ''
+
     const user = await User.findOne({ $or: [{ email }, { username }] })
-    if (user) {
+    if (user)
       return res
         .status(409)
         .json(
           serverError({ error: 'Email e/ou nome de usuário já cadastrado!' }),
         )
+
+    // VALIDAÇÕES PARA CADASTRO
+    const validations = [
+      usernameValidation(username),
+      emailValidation(email),
+      passwordValidation(password),
+    ]
+
+    for (const result of validations) {
+      if (!result.isValid)
+        return res.status(404).json(notFound({ error: result.message }))
     }
 
+    // SE A VALIDAÇÃO PASSAR, CADASTRA O USUÁRIO NO BANCO
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
     const colors = [
@@ -42,6 +67,7 @@ export const register = async (req, res) => {
       '87CEFA',
     ]
     const initial = username.split('')[0]
+    const color = colors[getRandomInt(0, colors.length - 1)]
 
     const newUser = new User({
       username,
@@ -52,7 +78,7 @@ export const register = async (req, res) => {
     const newProfile = new Profile({
       user: newUser._id,
       username: newUser.username,
-      avatar: `https://placehold.co/400x400/${colors}/FFFFFF?font=poppins&text=${initial}`,
+      avatar: `https://placehold.co/400x400/${color}/FFFFFF?font=poppins&text=${initial}`,
     })
 
     newUser.profile = newProfile._id
@@ -66,9 +92,13 @@ export const register = async (req, res) => {
       expiresIn: '1h',
     })
 
-    return res
-      .status(201)
-      .json(created({ message: 'Usuário criado com sucesso!', token, id: newUser.id}))
+    return res.status(201).json(
+      created({
+        message: 'Usuário criado com sucesso!',
+        token,
+        id: newUser.id,
+      }),
+    )
   } catch (error) {
     console.log(error)
     return res
@@ -91,15 +121,15 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) {
       return res
-        .status(401)
-        .json(notFout({ error: 'Email e/ou Senha Incorretos.' }))
+        .status(404)
+        .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
       return res
-        .status(401)
-        .json(notFout({ error: 'Email e/ou Senha Incorretos.' }))
+        .status(404)
+        .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
     const payload = {
@@ -110,9 +140,13 @@ export const login = async (req, res) => {
       expiresIn: '1h',
     })
 
-    res
-      .status(200)
-      .json(success({ message: 'Usuário autenticado com sucesso!', token, id: user.id }))
+    res.status(200).json(
+      success({
+        message: 'Usuário autenticado com sucesso!',
+        token,
+        id: user.id,
+      }),
+    )
   } catch (error) {
     console.log(error)
     return res

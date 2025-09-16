@@ -14,10 +14,10 @@ export const created = (body) => {
   }
 }
 
-export const notFout = (body) => {
+export const notFound = (body) => {
   return {
     success: false,
-    status: 400,
+    status: 404,
     body,
   }
 }
