@@ -8,23 +8,21 @@ import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 export const updateAvatar = async (req, res) => {
   try {
     if (!req.file)
-        return res
-          .status(400)
-          .json(notFound({ error: 'Nenhum arquivo de avatar enviado.' }))
+      return res
+        .status(400)
+        .json(notFound({ error: 'Nenhum arquivo de avatar enviado.' }))
 
     const { id } = req.params
     const user = await User.findById(id)
 
-    if(!user)
+    if (!user)
       return res
         .status(404)
         .json(notFound({ error: 'Usuário não encontrado!' }))
 
     const profile = await Profile.findById(user.profile)
-      if(!profile)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Perfil não encontrado!' }))
+    if (!profile)
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
     const newFilename = `${user._id}.webp`
     const finalPath = path.resolve('uploads', 'avatars', newFilename)
@@ -39,16 +37,16 @@ export const updateAvatar = async (req, res) => {
     profile.avatar = newFilename
     await profile.save()
 
-    return res.status(200).json(success({
-        message: 'Avatar atualizado com sucesso!'
-    }))
-
-
+    return res.status(200).json(
+      success({
+        message: 'Avatar atualizado com sucesso!',
+      }),
+    )
   } catch (error) {
     console.log(error)
 
-    if(req.file){
-        await fs.unlink(req.file.path)
+    if (req.file) {
+      await fs.unlink(req.file.path)
     }
 
     return res
@@ -60,8 +58,8 @@ export const updateAvatar = async (req, res) => {
 }
 
 export const follow = async (req, res) => {
-  try{
-    const followerUserId = req.user.id 
+  try {
+    const followerUserId = req.user.id
     const targetUserId = req.params.id
 
     if (followerUserId === targetUserId)
@@ -78,28 +76,33 @@ export const follow = async (req, res) => {
         .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
 
     if (followerProfile.following.list.includes(targetProfile._id)) {
-        return res.status(404).json(notFound({ error: 'Você já segue este usuário.'}))
+      return res
+        .status(404)
+        .json(notFound({ error: 'Você já segue este usuário.' }))
     }
 
     await Profile.updateOne(
       { _id: followerProfile._id },
       {
         $push: { 'following.list': targetProfile._id },
-        $inc: { 'following.count': 1 }
-      }
+        $inc: { 'following.count': 1 },
+      },
     )
 
     await Profile.updateOne(
       { _id: targetProfile._id },
       {
         $push: { 'followers.list': followerProfile._id },
-        $inc: { 'followers.count': 1 }
-      }
+        $inc: { 'followers.count': 1 },
+      },
     )
 
-    return res.status(200).json(success({ message: `Você começou a seguir ${targetProfile.username}.` }))
-
-  }catch (error) {
+    return res.status(200).json(
+      success({
+        message: `Você começou a seguir ${targetProfile.username}.`,
+      }),
+    )
+  } catch (error) {
     console.log(error)
 
     return res
@@ -116,7 +119,9 @@ export const unFollow = async (req, res) => {
     const targetUserId = req.params.id
 
     if (followerUserId === targetUserId) {
-      return res.status(404).json(notFound({ error: 'Você não pode deixar de seguir a si mesmo.' }))
+      return res
+        .status(404)
+        .json(notFound({ error: 'Você não pode deixar de seguir a si mesmo.' }))
     }
 
     const followerProfile = await Profile.findOne({ user: followerUserId })
@@ -127,33 +132,32 @@ export const unFollow = async (req, res) => {
         .status(404)
         .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
 
-
     if (!followerProfile.following.list.includes(targetProfile._id))
-        return res
-          .status(404)
-          .json(notFound({ error: 'Você não segue este usuário.'}))
-
+      return res
+        .status(404)
+        .json(notFound({ error: 'Você não segue este usuário.' }))
 
     await Profile.updateOne(
-        { _id: followerProfile._id },
-        {
-            $pull: { 'following.list': targetProfile._id },
-            $inc: { 'following.count': -1 }
-        }
+      { _id: followerProfile._id },
+      {
+        $pull: { 'following.list': targetProfile._id },
+        $inc: { 'following.count': -1 },
+      },
     )
 
     await Profile.updateOne(
-        { _id: targetProfile._id },
-        {
-            $pull: { 'followers.list': followerProfile._id },
-            $inc: { 'followers.count': -1 }
-        }
+      { _id: targetProfile._id },
+      {
+        $pull: { 'followers.list': followerProfile._id },
+        $inc: { 'followers.count': -1 },
+      },
     )
 
-    return res
-      .status(200)
-      .json(success({ message: `Você deixou de seguir ${targetProfile.username}.` }))
-
+    return res.status(200).json(
+      success({
+        message: `Você deixou de seguir ${targetProfile.username}.`,
+      }),
+    )
   } catch (error) {
     console.log(error)
     return res
@@ -161,4 +165,3 @@ export const unFollow = async (req, res) => {
       .json(serverError({ error: 'Não foi possível concluir a solicitação.' }))
   }
 }
-

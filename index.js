@@ -6,6 +6,7 @@ import { serverError } from './helpers/auxiliar.js'
 import authRoutes from './routes/authRouter.js'
 import userRoutes from './routes/userRouter.js'
 import profileRoutes from './routes/profileRouter.js'
+import postRoutes from './routes/postRouter.js'
 
 const main = async () => {
   // DATABASE - SE NÃO HOUVER DATABASE O SERVIDOR ENCERRA
@@ -26,9 +27,10 @@ const main = async () => {
     res.send({ msg: 'Hello, World' })
   })
 
-  app.use('/auth/', authRoutes)
-  app.use('/user/', userRoutes)
-  app.use('/profile/', profileRoutes)
+  app.use('/auth', authRoutes)
+  app.use('/user', userRoutes)
+  app.use('/profile', profileRoutes)
+  app.use('/post', postRoutes)
 
   app.listen(port, () => console.log('SERVER RUNNING!'))
 }
