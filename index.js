@@ -7,6 +7,7 @@ import authRoutes from './routes/authRouter.js'
 import userRoutes from './routes/userRouter.js'
 import profileRoutes from './routes/profileRouter.js'
 import postRoutes from './routes/postRouter.js'
+import commentRoutes from './routes/commentRouter.js'
 
 const main = async () => {
   // DATABASE - SE NÃO HOUVER DATABASE O SERVIDOR ENCERRA
@@ -31,6 +32,7 @@ const main = async () => {
   app.use('/user', userRoutes)
   app.use('/profile', profileRoutes)
   app.use('/post', postRoutes)
+  app.use('/comment', commentRoutes)
 
   app.listen(port, () => console.log('SERVER RUNNING!'))
 }

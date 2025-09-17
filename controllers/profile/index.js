@@ -2,7 +2,6 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
 import { Profile } from '../../models/Profile.js'
-import { User } from '../../models/User.js'
 import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 
 export const updateAvatar = async (req, res) => {
@@ -12,19 +11,13 @@ export const updateAvatar = async (req, res) => {
         .status(400)
         .json(notFound({ error: 'Nenhum arquivo de avatar enviado.' }))
 
-    const { id } = req.params
-    const user = await User.findById(id)
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id })
 
-    if (!user)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário não encontrado!' }))
-
-    const profile = await Profile.findById(user.profile)
     if (!profile)
       return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
-    const newFilename = `${user._id}.webp`
+    const newFilename = `${id}.webp`
     const finalPath = path.resolve('uploads', 'avatars', newFilename)
 
     await sharp(req.file.path)

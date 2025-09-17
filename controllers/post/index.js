@@ -1,5 +1,4 @@
 import { Post } from '../../models/Post.js'
-import { User } from '../../models/User.js'
 import { Profile } from '../../models/Profile.js'
 import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 
@@ -11,14 +10,8 @@ export const createPost = async (req, res) => {
 
   try {
     const { id } = req.user
-    const user = await User.findById(id)
+    const profile = await Profile.findOne({ user: id })
 
-    if (!user)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário não encontrado!' }))
-
-    const profile = await Profile.findById(user.profile)
     if (!profile)
       return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
@@ -28,7 +21,7 @@ export const createPost = async (req, res) => {
     if (contentPost === '')
       return res
         .status(404)
-        .json(notFound({ error: 'O conteúdo no post é obrigatório!' }))
+        .json(notFound({ error: 'O conteúdo do post é obrigatório!' }))
 
     const newPost = new Post({
       user: profile._id,
@@ -62,14 +55,8 @@ export const toggleLikePost = async (req, res) => {
 
   try {
     const { id } = req.user
-    const user = await User.findById(id)
+    const profile = await Profile.findOne({ user: id })
 
-    if (!user)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário não encontrado!' }))
-
-    const profile = await Profile.findById(user.profile)
     if (!profile)
       return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
