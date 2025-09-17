@@ -1,6 +1,6 @@
-import { Router } from "express"
-import { updateAvatar, follow, unFollow } from "../controllers/profile/index.js"
-import { authMiddleware } from "../middlewares/auth.js"
+import { Router } from 'express'
+import { updateAvatar, follow, unFollow } from '../controllers/profile/index.js'
+import { authMiddleware } from '../middlewares/auth.js'
 import upload from '../helpers/upload.js'
 
 const router = Router()

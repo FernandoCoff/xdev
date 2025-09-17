@@ -2,7 +2,6 @@ import { Schema, model } from 'mongoose'
 
 const postSchema = new Schema(
   {
-    index: true,
     user: {
       type: Schema.Types.ObjectId,
       ref: 'Profile',
@@ -13,8 +12,16 @@ const postSchema = new Schema(
       required: true,
     },
     likes: {
-      type: Number,
-      default: 0,
+      count: {
+        type: Number,
+        default: 0,
+      },
+      list: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: 'Profile',
+        },
+      ],
     },
     comments: {
       count: {
@@ -34,4 +41,5 @@ const postSchema = new Schema(
   },
 )
 
+postSchema.index({ user: 1, createdAt: -1 })
 export const Post = model('Post', postSchema)
