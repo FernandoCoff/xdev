@@ -48,7 +48,7 @@ export const register = async (req, res) => {
 
     for (const result of validations) {
       if (!result.isValid)
-        return res.status(404).json(notFound({ error: result.message }))
+        return res.status(409).json(notFound({ error: result.message }))
     }
 
     // SE A VALIDAÇÃO PASSAR, CADASTRA O USUÁRIO NO BANCO
@@ -96,7 +96,6 @@ export const register = async (req, res) => {
       created({
         message: 'Usuário criado com sucesso!',
         token,
-        id: newUser.id,
       }),
     )
   } catch (error) {
@@ -121,14 +120,14 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) {
       return res
-        .status(404)
+        .status(401)
         .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
       return res
-        .status(404)
+        .status(401)
         .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
@@ -144,7 +143,6 @@ export const login = async (req, res) => {
       success({
         message: 'Usuário autenticado com sucesso!',
         token,
-        id: user.id,
       }),
     )
   } catch (error) {

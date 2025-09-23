@@ -5,6 +5,7 @@ import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 import {
   passwordValidation,
   usernameValidation,
+  emailValidation,
 } from '../../helpers/validation.js'
 
 export const updatePassword = async (req, res) => {
@@ -52,6 +53,58 @@ export const updatePassword = async (req, res) => {
     return res
       .status(200)
       .json(success({ message: 'Senha atualizada com sucesso!' }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const updateEmail = async (req, res) => {
+  if (!req.body)
+    return res
+      .status(409)
+      .json(serverError({ error: 'Corpo da requisição indisponível!' }))
+  try {
+    const { id } = req.user
+    const user = await User.findById(id)
+    if (!user)
+      return res
+        .status(404)
+        .json(notFound({ error: 'Usuário não encontrado!' }))
+
+    const { newEmail: rawNewEmail, password } = req.body
+    const newEmail = rawNewEmail ? rawNewEmail.trim().toLowerCase() : ''
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+      return res.status(404).json(notFound({ error: 'Senha inválida.' }))
+    }
+
+    if (newEmail === user.email)
+      return res
+        .status(404)
+        .json(
+          notFound({ error: 'O novo email precisa ser diferente do antigo' }),
+        )
+
+    const isIndisponible = await User.findOne({ email: newEmail })
+    if (isIndisponible)
+      return res.status(409).json(serverError({ error: 'Email indisponível' }))
+
+    const validation = emailValidation(newEmail)
+    if (!validation.isValid)
+      return res.status(404).json(notFound({ error: validation.message }))
+
+    user.email = newEmail
+    await user.save()
+
+    return res
+      .status(200)
+      .json(success({ message: 'Email atualizado com sucesso!' }))
   } catch (error) {
     console.log(error)
     return res
@@ -117,6 +170,36 @@ export const updateUsername = async (req, res) => {
     return res
       .status(200)
       .json(success({ message: 'Nome de usuário atualizado com sucesso!' }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const getUser = async (req, res) => {
+  if (!req.user)
+    return res
+      .status(409)
+      .json(notFound({ error: 'Corpo da requisição indisponível!' }))
+  try {
+    const { id } = req.user
+    const user = await User.findById(id)
+
+    if (!user)
+      return res
+        .status(404)
+        .json(notFound({ error: 'Usuário não encontrado!' }))
+
+    return res.status(200).json(
+      success({
+        username: user.username,
+        email: user.email,
+      }),
+    )
   } catch (error) {
     console.log(error)
     return res

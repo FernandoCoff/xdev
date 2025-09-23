@@ -4,6 +4,42 @@ import fs from 'fs/promises'
 import { Profile } from '../../models/Profile.js'
 import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 
+export const getProfile = async (req, res) => {
+  try {
+    const { id } = req.user
+
+    const profile = await Profile.findOne({ user: id })
+      .populate({
+        path: 'posts.list',
+        model: 'Post',
+        select: 'content likes comments createdAt',
+      })
+      .populate({
+        path: 'followers.list',
+        model: 'Profile',
+        select: 'username avatar',
+      })
+      .populate({
+        path: 'following.list',
+        model: 'Profile',
+        select: 'username avatar',
+      })
+
+    if (!profile)
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+
+    return res.status(200).json(success(profile))
+  } catch (error) {
+    console.log(error)
+
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
 export const updateAvatar = async (req, res) => {
   try {
     if (!req.file)
