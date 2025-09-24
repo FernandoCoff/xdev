@@ -3,7 +3,7 @@ import {
   updatePassword,
   updateUsername,
   getUser,
-  updateEmail
+  updateEmail,
 } from '../controllers/user/index.js'
 import { authMiddleware } from '../middlewares/auth.js'
 

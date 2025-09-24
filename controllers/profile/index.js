@@ -86,118 +86,76 @@ export const updateAvatar = async (req, res) => {
   }
 }
 
-export const follow = async (req, res) => {
+export const toggleFollow = async (req, res) => {
   try {
-    const followerUserId = req.user.id
-    const targetUserId = req.params.id
+    const { id } = req.user
+    const targetId = req.params.id
 
-    if (followerUserId === targetUserId)
+    if (id === targetId) {
       return res
-        .status(404)
-        .json(notFound({ error: 'Você não pode seguir a si mesmo.' }))
+        .status(400)
+        .json(
+          notFound({
+            error: 'Você não pode seguir ou deixar de seguir a si mesmo.',
+          }),
+        )
+    }
 
-    const followerProfile = await Profile.findOne({ user: followerUserId })
-    const targetProfile = await Profile.findOne({ user: targetUserId })
+    const [profile, targetProfile] = await Promise.all([
+      Profile.findOne({ user: id }),
+      Profile.findById(targetId),
+    ])
 
-    if (!followerProfile || !targetProfile)
+    if (!profile || !targetProfile) {
       return res
         .status(404)
         .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
-
-    if (followerProfile.following.list.includes(targetProfile._id)) {
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você já segue este usuário.' }))
     }
 
-    await Profile.updateOne(
-      { _id: followerProfile._id },
-      {
-        $push: { 'following.list': targetProfile._id },
-        $inc: { 'following.count': 1 },
-      },
-    )
+    const isFollowing = profile.following.list.includes(targetProfile._id)
 
-    await Profile.updateOne(
-      { _id: targetProfile._id },
-      {
-        $push: { 'followers.list': followerProfile._id },
-        $inc: { 'followers.count': 1 },
-      },
-    )
+    const operator = isFollowing ? '$pull' : '$push'
+    const increment = isFollowing ? -1 : 1
 
-    return res.status(200).json(
-      success({
-        message: `Você começou a seguir ${targetProfile.username}.`,
-      }),
-    )
+    await Promise.all([
+      Profile.updateOne(
+        { _id: profile._id },
+        {
+          [operator]: { 'following.list': targetProfile._id },
+          $inc: { 'following.count': increment },
+        },
+      ),
+      Profile.updateOne(
+        { _id: targetProfile._id },
+        {
+          [operator]: { 'followers.list': profile._id },
+          $inc: { 'followers.count': increment },
+        },
+      ),
+    ])
+
+    const successMessage = isFollowing
+      ? `Você deixou de seguir ${targetProfile.username}.`
+      : `Você começou a seguir ${targetProfile.username}.`
+
+    return res.status(200).json(success({ message: successMessage }))
   } catch (error) {
     console.log(error)
-
     return res
-      .status(404)
+      .status(500)
       .json(
-        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+        serverError({ error: 'Não foi possível concluir a sua solicitação.' }),
       )
-  }
-}
-
-export const unFollow = async (req, res) => {
-  try {
-    const followerUserId = req.user.id
-    const targetUserId = req.params.id
-
-    if (followerUserId === targetUserId) {
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você não pode deixar de seguir a si mesmo.' }))
-    }
-
-    const followerProfile = await Profile.findOne({ user: followerUserId })
-    const targetProfile = await Profile.findOne({ user: targetUserId })
-
-    if (!followerProfile || !targetProfile)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
-
-    if (!followerProfile.following.list.includes(targetProfile._id))
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você não segue este usuário.' }))
-
-    await Profile.updateOne(
-      { _id: followerProfile._id },
-      {
-        $pull: { 'following.list': targetProfile._id },
-        $inc: { 'following.count': -1 },
-      },
-    )
-
-    await Profile.updateOne(
-      { _id: targetProfile._id },
-      {
-        $pull: { 'followers.list': followerProfile._id },
-        $inc: { 'followers.count': -1 },
-      },
-    )
-
-    return res.status(200).json(
-      success({
-        message: `Você deixou de seguir ${targetProfile.username}.`,
-      }),
-    )
-  } catch (error) {
-    console.log(error)
-    return res
-      .status(409)
-      .json(serverError({ error: 'Não foi possível concluir a solicitação.' }))
   }
 }
 
 export const getAllProfiles = async (req, res) => {
   try {
-    const profiles = await Profile.find({}, 'username avatar user')
+    const { id } = req.user
+    const profiles = await Profile.find(
+      { user: { $ne: id } },
+      'username avatar user',
+    )
     return res.status(200).json(success({ profiles }))
   } catch (error) {
     console.log(error)

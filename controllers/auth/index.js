@@ -1,5 +1,8 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import axios from 'axios'
+import fs from 'fs/promises'
+import path from 'path'
 import { User } from '../../models/User.js'
 import { Profile } from '../../models/Profile.js'
 import {
@@ -66,8 +69,6 @@ export const register = async (req, res) => {
       'DDA0DD',
       '87CEFA',
     ]
-    const initial = username.split('')[0]
-    const color = colors[getRandomInt(0, colors.length - 1)]
 
     const newUser = new User({
       username,
@@ -75,10 +76,22 @@ export const register = async (req, res) => {
       password: hashedPassword,
     })
 
+    const initial = username.charAt(0).toUpperCase()
+    const color = colors[getRandomInt(0, colors.length - 1)]
+    const avatarUrl = `https://placehold.co/300x300/${color}/FFFFFF?font=poppins&text=${initial}`
+    const filename = `${newUser._id}.svg`
+    const uploadDir = path.resolve(process.cwd(), 'uploads/avatars')
+    const localPath = path.join(uploadDir, filename)
+    await fs.mkdir(uploadDir, { recursive: true })
+    const response = await axios.get(avatarUrl, {
+      responseType: 'arraybuffer',
+    })
+    await fs.writeFile(localPath, response.data)
+
     const newProfile = new Profile({
       user: newUser._id,
       username: newUser.username,
-      avatar: `https://placehold.co/400x400/${color}/FFFFFF?font=poppins&text=${initial}`,
+      avatar: filename,
     })
 
     newUser.profile = newProfile._id

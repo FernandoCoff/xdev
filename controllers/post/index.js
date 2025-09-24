@@ -178,3 +178,30 @@ export const getPostById = async (req, res) => {
       )
   }
 }
+
+export const getMyAllPosts = async (req, res) => {
+  try {
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id })
+
+    if (!profile) {
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+    }
+
+    const posts = await Post.find({ user: profile._id })
+      .populate({
+        path: 'user',
+        select: 'user avatar username',
+      })
+      .sort({ createdAt: -1 })
+
+    return res.status(200).json(success({ posts }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possível concluir a sua solicitação' }),
+      )
+  }
+}
