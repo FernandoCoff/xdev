@@ -1,9 +1,43 @@
-import sharp from 'sharp'
-import path from 'path'
-import fs from 'fs/promises'
+import { v2 as cloudinary } from 'cloudinary'
+import streamifier from 'streamifier'
 import { Profile } from '../../models/Profile.js'
-import { User } from '../../models/User.js'
 import { notFound, serverError, success } from '../../helpers/httpRespose.js'
+
+export const getProfile = async (req, res) => {
+  try {
+    const { id } = req.user
+
+    const profile = await Profile.findOne({ user: id })
+      .populate({
+        path: 'posts.list',
+        model: 'Post',
+        select: 'content likes comments createdAt',
+      })
+      .populate({
+        path: 'followers.list',
+        model: 'Profile',
+        select: 'username avatar',
+      })
+      .populate({
+        path: 'following.list',
+        model: 'Profile',
+        select: 'username avatar',
+      })
+
+    if (!profile)
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+
+    return res.status(200).json(success(profile))
+  } catch (error) {
+    console.log(error)
+
+    return res
+      .status(409)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
 
 export const updateAvatar = async (req, res) => {
   try {
@@ -12,29 +46,39 @@ export const updateAvatar = async (req, res) => {
         .status(400)
         .json(notFound({ error: 'Nenhum arquivo de avatar enviado.' }))
 
-    const { id } = req.params
-    const user = await User.findById(id)
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    })
 
-    if (!user)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário não encontrado!' }))
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id })
 
-    const profile = await Profile.findById(user.profile)
     if (!profile)
       return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
-    const newFilename = `${user._id}.webp`
-    const finalPath = path.resolve('uploads', 'avatars', newFilename)
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: id,
+          folder: 'xdev_avatars',
+          transformation: [{ width: 300, height: 300, crop: 'fill' }],
+          format: 'webp',
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error)
+          }
+          resolve(result)
+        },
+      )
 
-    await sharp(req.file.path)
-      .resize(300, 300)
-      .toFormat('webp')
-      .toFile(finalPath)
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream)
+    })
 
-    await fs.unlink(req.file.path)
-
-    profile.avatar = newFilename
+    const uploadResult = await uploadPromise
+    profile.avatar = uploadResult.secure_url
     await profile.save()
 
     return res.status(200).json(
@@ -44,11 +88,6 @@ export const updateAvatar = async (req, res) => {
     )
   } catch (error) {
     console.log(error)
-
-    if (req.file) {
-      await fs.unlink(req.file.path)
-    }
-
     return res
       .status(409)
       .json(
@@ -57,111 +96,129 @@ export const updateAvatar = async (req, res) => {
   }
 }
 
-export const follow = async (req, res) => {
+export const toggleFollow = async (req, res) => {
   try {
-    const followerUserId = req.user.id
-    const targetUserId = req.params.id
+    const { id } = req.user
+    const targetId = req.params.id
 
-    if (followerUserId === targetUserId)
+    if (id === targetId) {
       return res
-        .status(404)
-        .json(notFound({ error: 'Você não pode seguir a si mesmo.' }))
+        .status(400)
+        .json(
+          notFound({
+            error: 'Você não pode seguir ou deixar de seguir a si mesmo.',
+          }),
+        )
+    }
 
-    const followerProfile = await Profile.findOne({ user: followerUserId })
-    const targetProfile = await Profile.findOne({ user: targetUserId })
+    const [profile, targetProfile] = await Promise.all([
+      Profile.findOne({ user: id }),
+      Profile.findById(targetId),
+    ])
 
-    if (!followerProfile || !targetProfile)
+    if (!profile || !targetProfile) {
       return res
         .status(404)
         .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
-
-    if (followerProfile.following.list.includes(targetProfile._id)) {
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você já segue este usuário.' }))
     }
 
-    await Profile.updateOne(
-      { _id: followerProfile._id },
-      {
-        $push: { 'following.list': targetProfile._id },
-        $inc: { 'following.count': 1 },
-      },
-    )
+    const isFollowing = profile.following.list.includes(targetProfile._id)
 
-    await Profile.updateOne(
-      { _id: targetProfile._id },
-      {
-        $push: { 'followers.list': followerProfile._id },
-        $inc: { 'followers.count': 1 },
-      },
-    )
+    const operator = isFollowing ? '$pull' : '$push'
+    const increment = isFollowing ? -1 : 1
 
-    return res.status(200).json(
-      success({
-        message: `Você começou a seguir ${targetProfile.username}.`,
-      }),
-    )
+    await Promise.all([
+      Profile.updateOne(
+        { _id: profile._id },
+        {
+          [operator]: { 'following.list': targetProfile._id },
+          $inc: { 'following.count': increment },
+        },
+      ),
+      Profile.updateOne(
+        { _id: targetProfile._id },
+        {
+          [operator]: { 'followers.list': profile._id },
+          $inc: { 'followers.count': increment },
+        },
+      ),
+    ])
+
+    const successMessage = isFollowing
+      ? `Você deixou de seguir ${targetProfile.username}.`
+      : `Você começou a seguir ${targetProfile.username}.`
+
+    return res.status(200).json(success({ message: successMessage }))
   } catch (error) {
     console.log(error)
-
     return res
-      .status(404)
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possível concluir a sua solicitação.' }),
+      )
+  }
+}
+
+export const getAllProfiles = async (req, res) => {
+  try {
+    const { id } = req.user
+    const profiles = await Profile.find(
+      { user: { $ne: id } },
+      'username avatar user',
+    )
+    return res.status(200).json(success({ profiles }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
       .json(
         serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
       )
   }
 }
 
-export const unFollow = async (req, res) => {
+export const getFollowingProfiles = async (req, res) => {
   try {
-    const followerUserId = req.user.id
-    const targetUserId = req.params.id
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id }).populate({
+      path: 'following.list',
+      select: 'username avatar user',
+    })
 
-    if (followerUserId === targetUserId) {
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você não pode deixar de seguir a si mesmo.' }))
+    if (!profile) {
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
     }
 
-    const followerProfile = await Profile.findOne({ user: followerUserId })
-    const targetProfile = await Profile.findOne({ user: targetUserId })
-
-    if (!followerProfile || !targetProfile)
-      return res
-        .status(404)
-        .json(notFound({ error: 'Usuário ou perfil não encontrado.' }))
-
-    if (!followerProfile.following.list.includes(targetProfile._id))
-      return res
-        .status(404)
-        .json(notFound({ error: 'Você não segue este usuário.' }))
-
-    await Profile.updateOne(
-      { _id: followerProfile._id },
-      {
-        $pull: { 'following.list': targetProfile._id },
-        $inc: { 'following.count': -1 },
-      },
-    )
-
-    await Profile.updateOne(
-      { _id: targetProfile._id },
-      {
-        $pull: { 'followers.list': followerProfile._id },
-        $inc: { 'followers.count': -1 },
-      },
-    )
-
-    return res.status(200).json(
-      success({
-        message: `Você deixou de seguir ${targetProfile.username}.`,
-      }),
-    )
+    return res.status(200).json(success({ following: profile.following.list }))
   } catch (error) {
     console.log(error)
     return res
-      .status(409)
-      .json(serverError({ error: 'Não foi possível concluir a solicitação.' }))
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const getFollowerProfiles = async (req, res) => {
+  try {
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id }).populate({
+      path: 'followers.list',
+      select: 'username avatar user',
+    })
+
+    if (!profile) {
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+    }
+
+    return res.status(200).json(success({ followers: profile.followers.list }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
   }
 }

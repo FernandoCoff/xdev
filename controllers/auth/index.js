@@ -22,6 +22,7 @@ export const register = async (req, res) => {
       .json(serverError({ error: 'Corpo da requisição indisponível!' }))
 
   try {
+
     const {
       username: rawUsername,
       email: rawEmail,
@@ -39,7 +40,6 @@ export const register = async (req, res) => {
           serverError({ error: 'Email e/ou nome de usuário já cadastrado!' }),
         )
 
-    // VALIDAÇÕES PARA CADASTRO
     const validations = [
       usernameValidation(username),
       emailValidation(email),
@@ -48,26 +48,15 @@ export const register = async (req, res) => {
 
     for (const result of validations) {
       if (!result.isValid)
-        return res.status(404).json(notFound({ error: result.message }))
+        return res.status(409).json(notFound({ error: result.message }))
     }
 
-    // SE A VALIDAÇÃO PASSAR, CADASTRA O USUÁRIO NO BANCO
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
     const colors = [
-      'E6E6FA',
-      'FFB6C1',
-      'ADD8E6',
-      'F08080',
-      '90EE90',
-      'FFDAB9',
-      'B0E0E6',
-      'FFDEAD',
-      'DDA0DD',
-      '87CEFA',
+      'E6E6FA', 'FFB6C1', 'ADD8E6', 'F08080', '90EE90',
+      'FFDAB9', 'B0E0E6', 'FFDEAD', 'DDA0DD', '87CEFA',
     ]
-    const initial = username.split('')[0]
-    const color = colors[getRandomInt(0, colors.length - 1)]
 
     const newUser = new User({
       username,
@@ -75,10 +64,14 @@ export const register = async (req, res) => {
       password: hashedPassword,
     })
 
+    const initial = username.charAt(0).toUpperCase()
+    const color = colors[getRandomInt(0, colors.length - 1)]
+    const avatarUrl = `https://placehold.co/300x300/${color}/FFFFFF?font=poppins&text=${initial}&`
+
     const newProfile = new Profile({
       user: newUser._id,
       username: newUser.username,
-      avatar: `https://placehold.co/400x400/${color}/FFFFFF?font=poppins&text=${initial}`,
+      avatar: avatarUrl,
     })
 
     newUser.profile = newProfile._id
@@ -96,7 +89,6 @@ export const register = async (req, res) => {
       created({
         message: 'Usuário criado com sucesso!',
         token,
-        id: newUser.id,
       }),
     )
   } catch (error) {
@@ -121,14 +113,14 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) {
       return res
-        .status(404)
+        .status(401)
         .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
       return res
-        .status(404)
+        .status(401)
         .json(notFound({ error: 'Email e/ou Senha Incorretos.' }))
     }
 
@@ -144,7 +136,6 @@ export const login = async (req, res) => {
       success({
         message: 'Usuário autenticado com sucesso!',
         token,
-        id: user.id,
       }),
     )
   } catch (error) {

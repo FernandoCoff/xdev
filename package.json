@@ -22,14 +22,18 @@
   },
   "homepage": "https://github.com/FernandoCoff/xdev#readme",
   "dependencies": {
+    "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
-    "sharp": "^0.34.3"
+    "multer-storage-cloudinary": "^4.0.0",
+    "sharp": "^0.34.3",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
