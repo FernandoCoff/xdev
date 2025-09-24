@@ -8,7 +8,7 @@ import {
   getFollowingProfiles,
 } from '../controllers/profile/index.js'
 import { authMiddleware } from '../middlewares/auth.js'
-import upload from '../helpers/upload.js'
+import upload from '../middlewares/multer.js'
 
 const router = Router()
 router.get('/', authMiddleware, getProfile)

@@ -1,8 +1,5 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
-import axios from 'axios'
-import fs from 'fs/promises'
-import path from 'path'
 import { User } from '../../models/User.js'
 import { Profile } from '../../models/Profile.js'
 import {
@@ -25,6 +22,7 @@ export const register = async (req, res) => {
       .json(serverError({ error: 'Corpo da requisição indisponível!' }))
 
   try {
+
     const {
       username: rawUsername,
       email: rawEmail,
@@ -42,7 +40,6 @@ export const register = async (req, res) => {
           serverError({ error: 'Email e/ou nome de usuário já cadastrado!' }),
         )
 
-    // VALIDAÇÕES PARA CADASTRO
     const validations = [
       usernameValidation(username),
       emailValidation(email),
@@ -54,20 +51,11 @@ export const register = async (req, res) => {
         return res.status(409).json(notFound({ error: result.message }))
     }
 
-    // SE A VALIDAÇÃO PASSAR, CADASTRA O USUÁRIO NO BANCO
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
     const colors = [
-      'E6E6FA',
-      'FFB6C1',
-      'ADD8E6',
-      'F08080',
-      '90EE90',
-      'FFDAB9',
-      'B0E0E6',
-      'FFDEAD',
-      'DDA0DD',
-      '87CEFA',
+      'E6E6FA', 'FFB6C1', 'ADD8E6', 'F08080', '90EE90',
+      'FFDAB9', 'B0E0E6', 'FFDEAD', 'DDA0DD', '87CEFA',
     ]
 
     const newUser = new User({
@@ -78,20 +66,12 @@ export const register = async (req, res) => {
 
     const initial = username.charAt(0).toUpperCase()
     const color = colors[getRandomInt(0, colors.length - 1)]
-    const avatarUrl = `https://placehold.co/300x300/${color}/FFFFFF?font=poppins&text=${initial}`
-    const filename = `${newUser._id}.svg`
-    const uploadDir = path.resolve(process.cwd(), 'uploads/avatars')
-    const localPath = path.join(uploadDir, filename)
-    await fs.mkdir(uploadDir, { recursive: true })
-    const response = await axios.get(avatarUrl, {
-      responseType: 'arraybuffer',
-    })
-    await fs.writeFile(localPath, response.data)
+    const avatarUrl = `https://placehold.co/300x300/${color}/FFFFFF?font=poppins&text=${initial}&`
 
     const newProfile = new Profile({
       user: newUser._id,
       username: newUser.username,
-      avatar: filename,
+      avatar: avatarUrl,
     })
 
     newUser.profile = newProfile._id

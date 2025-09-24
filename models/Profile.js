@@ -62,10 +62,7 @@ const profileSchema = new Schema(
 )
 
 profileSchema.virtual('avatar_url').get(function () {
-  if (this.avatar) {
-    return `${process.env.API_URL}/uploads/avatars/${this.avatar}`
-  }
-  return null
+  return this.avatar
 })
 
 export const Profile = model('Profile', profileSchema)

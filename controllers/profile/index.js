@@ -1,6 +1,5 @@
-import sharp from 'sharp'
-import path from 'path'
-import fs from 'fs/promises'
+import { v2 as cloudinary } from 'cloudinary'
+import streamifier from 'streamifier'
 import { Profile } from '../../models/Profile.js'
 import { notFound, serverError, success } from '../../helpers/httpRespose.js'
 
@@ -47,23 +46,39 @@ export const updateAvatar = async (req, res) => {
         .status(400)
         .json(notFound({ error: 'Nenhum arquivo de avatar enviado.' }))
 
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    })
+
     const { id } = req.user
     const profile = await Profile.findOne({ user: id })
 
     if (!profile)
       return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
 
-    const newFilename = `${id}.webp`
-    const finalPath = path.resolve('uploads', 'avatars', newFilename)
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: id,
+          folder: 'xdev_avatars',
+          transformation: [{ width: 300, height: 300, crop: 'fill' }],
+          format: 'webp',
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error)
+          }
+          resolve(result)
+        },
+      )
 
-    await sharp(req.file.path)
-      .resize(300, 300)
-      .toFormat('webp')
-      .toFile(finalPath)
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream)
+    })
 
-    await fs.unlink(req.file.path)
-
-    profile.avatar = newFilename
+    const uploadResult = await uploadPromise
+    profile.avatar = uploadResult.secure_url
     await profile.save()
 
     return res.status(200).json(
@@ -73,11 +88,6 @@ export const updateAvatar = async (req, res) => {
     )
   } catch (error) {
     console.log(error)
-
-    if (req.file) {
-      await fs.unlink(req.file.path)
-    }
-
     return res
       .status(409)
       .json(
