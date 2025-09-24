@@ -194,3 +194,63 @@ export const unFollow = async (req, res) => {
       .json(serverError({ error: 'Não foi possível concluir a solicitação.' }))
   }
 }
+
+export const getAllProfiles = async (req, res) => {
+  try {
+    const profiles = await Profile.find({}, 'username avatar user')
+    return res.status(200).json(success({ profiles }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const getFollowingProfiles = async (req, res) => {
+  try {
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id }).populate({
+      path: 'following.list',
+      select: 'username avatar user',
+    })
+
+    if (!profile) {
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+    }
+
+    return res.status(200).json(success({ following: profile.following.list }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
+
+export const getFollowerProfiles = async (req, res) => {
+  try {
+    const { id } = req.user
+    const profile = await Profile.findOne({ user: id }).populate({
+      path: 'followers.list',
+      select: 'username avatar user',
+    })
+
+    if (!profile) {
+      return res.status(404).json(notFound({ error: 'Perfil não encontrado!' }))
+    }
+
+    return res.status(200).json(success({ followers: profile.followers.list }))
+  } catch (error) {
+    console.log(error)
+    return res
+      .status(500)
+      .json(
+        serverError({ error: 'Não foi possivél concluir a sua solicitação' }),
+      )
+  }
+}
